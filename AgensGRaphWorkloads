@@ -1,0 +1,74 @@
+// The 5 tasks with AgensGraph multimodel DB using postgresql and cypher
+
+//Task 1: Finding the customer who has spent the maximum amount in his/her purchasing history of items. In this aggregation query only a single data model, the JSON customerOrder document, is involved.\\ \\
+
+SELECT personid, sum(totalprice) 
+FROM customerOrder group by personid 
+ORDER by sum(totalprice) DESC; limit(5);
+
+
+
+//Task 2: Recommend items to a customer( id=933 ) where his friends bought but not him/her. \\
+
+   SELECT json_array_elements(orderline)->>'productId' as 
+   productifd 
+   FROM testorderjson where personid  in  
+   ( SELECT * FROM  
+   ( match (n:Customer {id : 933})-[:Friends]->(m:Customer)
+   RETURN m.id::bigint ) as momo ) 
+   EXCEPT 
+   SELECT json_array_elements(orderline)->>'productId' as productid
+   FROM  testorderjson 
+   WHERE personid=933;
+   
+   
+   //Taks: 3 Recommend items to a customer( id=933 ) where his friends bought but not him/her and the items with good ratings(rating >=3).\\ \\
+
+  SELECT productId , rating
+  FROM (
+  SELECT custid, productid,rating 
+  FROM custfeedback 
+  where custid in (SELECT * FROM (match (n:Customer {id : 
+  28587302326977})-[:Friends]->(m:Customer) RETURN m.id::bigint) as
+  customers)
+  ) as frProduct
+  WHERE productid not in (
+  SELECT json_array_elements(orderline)->>'productId' as productid 
+  FROM testorderjson 
+  WHERE personid=28587302326977) 
+  and rating > 3;
+
+//Taks 4: Find friends of a friend of a customer(depth-1) and
+//Taks 5: Find friends-of-friend-of-friends of a customer (depth-2)
+//The procedures for loading and setting up or  preparing the data for further manipulation in both databases is shown below.
+
+CREATE GRAPH network;    --- creating graph
+  SET graph_path = network;   -- setting the graph as the current     
+  graph path
+           --- loading data
+  CREATE FOREIGN TABLE vlabel_profile (id BIGINT,
+  firstName varchar(50),lastName varchar(50),gender varchar   
+  (10),birthday varchar(50),creationDate varchar(50),locationIP   
+  varchar(50), browserUsed varchar (50))
+
+  SERVER import_server
+  OPTIONS (FORMAT 'csv', HEADER 'TRUE', FILENAME '/home/me/Desktop   
+  /MultiData/Customer/Customer.csv', DELIMITER '|');
+
+  CREATE FOREIGN TABLE elabel_profile
+  (id bigint, fid bigint, date character varying(80) )
+  SERVER import_server
+  OPTIONS (FORMAT 'csv', HEADER 'false', FILENAME '/home/me/Desktop 
+  /MultiData/KnowsGraph/CustomerKnowsCustomer.csv', DELIMITER '|')
+
+ LOAD FROM vlabel_profile As profile_name 
+ CREATE (a:Customer = row_to_json(profile_name)::jsonb);
+ CREATE VLABEL Customer;
+ CREATE ELABEL Friends;
+ LOAD FROM elabel_profile As profile_friend
+
+--- Create pattern 
+  MATCH (a:Customer),(b:Customer)
+  WHERE (a).id::BIGINT = (profile_friend).id AND (b).id::BIGINT =    
+  (profile_friend).fid 
+  CREATE (a)-[:Friends]->(b);
