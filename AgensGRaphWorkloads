@@ -1,6 +1,6 @@
-// The 5 tasks with AgensGraph multimodel DB using postgresql and cypher
+// The 5 tasks with AgensGraph multimodel DB using postgresql7SQL/and cypher
 
-//Task 1: Finding the customer who has spent the maximum amount in his/her purchasing history of items. In this aggregation query only a single data model, the JSON customerOrder document, is involved.\\ \\
+// Task 1: Finding the customer who has spent the maximum amount in his/her purchasing history of items. In this aggregation query only a single data model, the JSON customerOrder document, is involved.\\ \\
 
 SELECT personid, sum(totalprice) 
 FROM customerOrder group by personid 
@@ -8,7 +8,7 @@ ORDER by sum(totalprice) DESC; limit(5);
 
 
 
-//Task 2: Recommend items to a customer( id=933 ) where his friends bought but not him/her. \\
+// Task 2: Recommend items to a customer( id=933 ) where his friends bought but not him/her. \\
 
    SELECT json_array_elements(orderline)->>'productId' as 
    productifd 
@@ -22,7 +22,7 @@ ORDER by sum(totalprice) DESC; limit(5);
    WHERE personid=933;
    
    
-   //Taks: 3 Recommend items to a customer( id=933 ) where his friends bought but not him/her and the items with good ratings(rating >=3).\\ \\
+// Taks: 3 Recommend items to a customer( id=933 ) where his friends bought but not him/her and the items with good ratings(rating >=3).\\ \\
 
   SELECT productId , rating
   FROM (
@@ -40,6 +40,7 @@ ORDER by sum(totalprice) DESC; limit(5);
 
 //Taks 4: Find friends of a friend of a customer(depth-1) and
 //Taks 5: Find friends-of-friend-of-friends of a customer (depth-2)
+
 //The procedures for loading and setting up or  preparing the data for further manipulation in both databases is shown below.
 
 CREATE GRAPH network;    --- creating graph
