@@ -1,0 +1,300 @@
+//Task 1: Finding the customer who has spent the maximum amount in his/her purchasing history of items. 
+//In this aggregation query only a single data model, the JSON customerOrder document, is involved.
+
+var MongoClient = require('mongodb').MongoClient;
+var url = "mongodb://localhost:27017/TEST";
+MongoClient.connect(url, function(err, db)
+{
+db.collection('Order').aggregate([
+{
+ $group:
+	{
+	 _id:"$PersonId",
+ Total:{$sum:"$TotalPrice"}
+	}
+},
+{
+ $sort:{Total:-1},
+},
+{
+ $project:
+	{
+	 "PersonId":1,
+	  "Total":1,	   
+	}
+},
+{
+ $limit:5
+}
+],function(err,res){
+  if (err) throw err;
+   console.log(JSON.stringify(res));
+  })
+db.close();
+})
+
+// Task -2 Find friends of a friend of a customer(depth-1)\\
+//--The implementation for preparing for further graph traversing query in grouping an immediate friends and embedding to each documents
+
+//1---Grouping of a Friend in MongoDB
+
+\begin{lstlisting}
+
+ MongoClient.connect(url, function(err, db)
+ {
+ //if (err) throw err
+ var res =[];
+ db.collection('customer').aggregate([
+ {$match: {"_id" : 933}},
+ {
+ $graphLookup: {
+                     from: "customer",
+                startWith: "$Friends",
+         connectFromField: "Friends",
+           connectToField: "_id",
+                 maxDepth: 1,
+                       as: "ExpUsers",
+              } 
+ },
+ {
+ $project : {
+            "_id":1,
+        "Friends":1,
+ "Friends of a Friend who use Explorer":"$ExpUsers._id"
+            } 
+ } ]
+).toArray().then(function(res) {
+ console.log(JSON.stringify(res));
+ db.close();
+})
+
+//---Once the grouping is completed now the graph traversal query of fetching friends-of-friends
+// -- of a customer or to any depth with the \$graphLookUp utility tool of MongoDB is used as follows
+// 2- Find friend of a Friend Task
+ MongoClient.connect(url, function(err, db)
+ {
+ //if (err) throw err
+ var res =[];
+ db.collection('customer').aggregate([
+ {$match: {"_id" : 933}},
+ {
+ $graphLookup: {
+                     from: "customer",
+                startWith: "$Friends",
+         connectFromField: "Friends",
+           connectToField: "_id",
+                 maxDepth: 1,
+                       as: "ExpUsers",
+              } 
+ },
+ {
+ $project : {
+            "_id":1,
+        "Friends":1,
+ "Friends of a Friend who use Explorer":"$ExpUsers._id"
+            } 
+ } ]
+).toArray().then(function(res) {
+ console.log(JSON.stringify(res));
+ db.close();
+})
+//--Task-4 Recommend a items to a customer where his friends bought but not him/her.
+
+var MongoClient = require('mongodb').MongoClient;
+var url = "mongodb://localhost:27017/TEST";
+var start = new Date();
+var end ;
+var Recc;
+var Rec2;
+MongoClient.connect(url, function(err, db)
+{
+  db.collection('customerPro').aggregate([
+     { $match: {"_id" : 933 }},
+     {  $lookup:
+           {
+             from : 'Order',
+             localField : '_id',
+             foreignField:'PersonId',
+             as:'orderedItems'
+           }
+       },
+    { $unwind:{ path:"$orderedItems"}},
+        {
+         $project : {
+                        "_id":1,
+                     //"PersonID":1,
+                     "orderedItems.Orderline.productId":1,
+                   }
+          },
+    { $unwind:{ path:"$orderedItems.Orderline"}},
+{  $sort :{"orderedItems.Orderline.productId":-1 } },
+
+   {
+        $group :{   _id : null,
+                    Products:{ $push: "$orderedItems.Orderline.productId"}
+                }
+   },
+  ]).toArray(function(err, result){
+   if (err) throw err;
+  //console.log(JSON.stringify(result));
+  Rec2 = result[0].Products;
+  //console.log(Rec2);
+db.collection('customerPro').aggregate([
+    { $match: {"_id" : 933 }},
+    { $unwind:{ path:"$Friends"}},
+    {
+      //frinds lookup to
+       $lookup:
+        {
+          from : 'Order',
+          localField : 'Friends',
+          foreignField:'PersonId',
+          as:'orderedItems'
+        }
+    },
+{ $unwind:{ path:"$orderedItems"}},
+{
+      $project : {
+                  "_id":1,
+               //  "Friends":1,
+                  "orderedItems.Orderline.productId":1,
+                 }
+ },
+ { $unwind:{ path:"$orderedItems.Orderline"}},
+       {
+        $group :{   _id : 1,
+                    fProducts :{ $push: "$orderedItems.Orderline.productId"}
+                }
+       },
+{ $unwind:{ path:"$fProducts"}},
+ {
+     $redact: {
+     $cond: {
+            if: { $in:["$fProducts",Rec2]},
+            then: "$$PRUNE",
+            else: "$$KEEP",
+            }
+       }
+ },
+]).toArray(function(err, result1){
+ if (err) throw err;
+for (i=0;i< result1.length;i++){
+console.log(result1[i].fProducts);
+end = new Date() - start;
+}
+})
+db.close();
+})
+})
+
+
+//--Task 5 Recommend itsme to a customer where  friend where his friends bought and gave comments and ratings which he/she didn't buy
+var MongoClient = require('mongodb').MongoClient;
+var url = "mongodb://localhost:27017/TEST";
+var ItemsID;
+var ItemsID2;
+var end ;
+var start = new Date();
+MongoClient.connect(url, function(err, db)
+{
+ db.collection('customerPro').aggregate([
+     { $match: {"_id" : 28587302326977 }},
+     {
+          $lookup:
+           {
+             from : 'feedBack',
+             localField : '_id',
+             foreignField:'_fromCus',
+             as:'boughtItems'
+           }
+       },
+{ $unwind:{ path:"$boughtItems"}},
+ {
+   $project : {
+      "_id":1,
+      "PersonID":1,
+      "boughtItems._rating":1,
+      "boughtItems.productId":1
+      }
+},
+{
+ $group :{   _id : 1,
+        bProducts:{ $push: "$boughtItems.productId"}
+         }
+  },
+]).toArray(function(err, result1){
+ if (err) throw err;
+ ItemsID = result1[0].bProducts
+db.collection('customerPro').aggregate([
+     { $match: {"_id" : 28587302326977 }},
+     {
+          $lookup:
+           {
+             from : 'Order',
+             localField : '_id',
+             foreignField:'PersonId',
+             as:'boughtItems'
+           }
+       },
+ { $unwind:{ path:"$boughtItems"}},
+ {
+  $project : {
+                 "_id":1,
+                 "boughtItems.Orderline.asin":1,
+         }
+ },
+ { $unwind:{ path:"$boughtItems.Orderline"}},
+ {
+ $group :{   _id : 1,
+             oProducts:{ $push: "$boughtItems.Orderline.asin"}
+         }
+  },
+{
+   $project :{   _id : 1,
+                'TotalItems':{ $concatArrays: ['$oProducts',ItemsID]}
+           }
+   },
+    ]).toArray(function(err, result1){
+ if (err) throw err;
+ItemsID2 = result1[0].TotalItems;
+db.collection('customerPro').aggregate([
+{ $match: {"_id" : 28587302326977 }},
+    { $unwind:{ path:"$Friends"}},
+    {
+         $lookup:
+          {
+            from : 'feedBack',
+            localField : 'Friends',
+            foreignField:'_fromCus',
+            as:'fboughtItems'
+          }
+      },
+{ $unwind:{ path:"$fboughtItems"}},
+{
+         $redact: {
+         $cond: {
+             if: { $gt:["$fboughtItems._rating",'3.0']},
+            then: "$$KEEP",
+            else: "$$PRUNE",
+                }
+           }
+ },
+{
+ $group :{   _id : 1,
+             fProducts :{ $push: "$fboughtItems.productId"}
+         }
+},
+{
+    $redact: {
+    $cond: {
+           if: { $in:["$fProducts",ItemsID2]},
+          then: "$$PRUNE",
+          else: "$$KEEP",
+           }
+      }
+},])
+});
+})
+})
+\end{lstlisting}
+
