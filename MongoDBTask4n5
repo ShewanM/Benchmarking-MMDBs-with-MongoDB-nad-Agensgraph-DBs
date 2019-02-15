@@ -1,4 +1,5 @@
 
+//--two task using 3 csv files 
 //1-Grouping of a Friend in MongoDB
 
  MongoClient.connect(url, function(err, db)
@@ -147,7 +148,7 @@ db.close();
 })
 })
 
-//3- Task 5 Recommend itsme to a customer where  friend where his friends bought and gave comments and ratings which he/she didn't buy
+//- Task 5 Recommend itsme to a customer where  friend where his friends bought and gave comments and ratings which he/she didn't buy
 
 \begin{lstlisting}
 var MongoClient = require('mongodb').MongoClient;
